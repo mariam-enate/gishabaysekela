@@ -9,11 +9,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Droplets, User, LogOut, Shield, LayoutDashboard } from 'lucide-react';
+import { Droplets, User, LogOut, Shield, LayoutDashboard, Menu, Home, Info, Mail } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useState } from 'react';
 
 export function Navbar() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -29,6 +32,12 @@ export function Navbar() {
       .slice(0, 2);
   };
 
+  const navLinks = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/about', label: 'About', icon: Info },
+    { href: '/contact', label: 'Contact', icon: Mail },
+  ];
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -42,18 +51,31 @@ export function Navbar() {
           </div>
         </Link>
 
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              to={link.href}
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+
         <div className="flex items-center gap-4">
           {user ? (
             <>
               {isAdmin && (
-                <Button variant="outline" size="sm" asChild className="hidden sm:flex gap-2">
+                <Button variant="outline" size="sm" asChild className="hidden md:flex gap-2">
                   <Link to="/admin">
                     <Shield className="h-4 w-4" />
                     Admin
                   </Link>
                 </Button>
               )}
-              <Button variant="ghost" size="sm" asChild className="hidden sm:flex gap-2">
+              <Button variant="ghost" size="sm" asChild className="hidden md:flex gap-2">
                 <Link to="/dashboard">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
@@ -85,21 +107,21 @@ export function Navbar() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="sm:hidden">
+                  <DropdownMenuItem asChild className="md:hidden">
                     <Link to="/dashboard" className="flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4" />
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
-                    <DropdownMenuItem asChild className="sm:hidden">
+                    <DropdownMenuItem asChild className="md:hidden">
                       <Link to="/admin" className="flex items-center gap-2">
                         <Shield className="h-4 w-4" />
                         Admin Dashboard
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuSeparator className="sm:hidden" />
+                  <DropdownMenuSeparator className="md:hidden" />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive gap-2">
                     <LogOut className="h-4 w-4" />
                     Sign out
@@ -112,6 +134,53 @@ export function Navbar() {
               <Link to="/auth">Sign In</Link>
             </Button>
           )}
+
+          {/* Mobile Menu */}
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64">
+              <div className="flex flex-col gap-4 mt-8">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                  >
+                    <link.icon className="h-5 w-5" />
+                    {link.label}
+                  </Link>
+                ))}
+                {user && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    >
+                      <LayoutDashboard className="h-5 w-5" />
+                      Dashboard
+                    </Link>
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                      >
+                        <Shield className="h-5 w-5" />
+                        Admin
+                      </Link>
+                    )}
+                  </>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </nav>
