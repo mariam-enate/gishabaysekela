@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { Droplets, Users, LogIn, UserPlus } from 'lucide-react';
+import heroAbay from '@/assets/hero-abay.jpg';
+import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -128,20 +131,42 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 gradient-hero">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-            <Droplets className="h-8 w-8 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Gish Abay Sekela
-          </h1>
-          <p className="text-muted-foreground mt-1">Students Association</p>
+    <div className="min-h-screen flex flex-col">
+      {/* Background with image */}
+      <div 
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-10"
+        style={{ backgroundImage: `url(${heroAbay})` }}
+      />
+      <div className="fixed inset-0 bg-background/85 backdrop-blur-sm -z-10" />
+
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        {/* Ethiopian Flag Accent */}
+        <div className="absolute top-4 right-4 md:top-8 md:right-8 opacity-90">
+          <img 
+            src={ethiopianFlag} 
+            alt="Ethiopian Flag" 
+            className="w-12 h-12 md:w-16 md:h-16 rounded-lg shadow-xl object-cover"
+          />
         </div>
 
-        <Card className="animate-fade-in shadow-xl border-0">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+              <Droplets className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Gish Abay Sekela
+            </h1>
+            <p className="text-muted-foreground mt-1">Students Association</p>
+            <div className="inline-flex gap-1 mt-3">
+              <span className="w-8 h-1 bg-secondary rounded-full" />
+              <span className="w-8 h-1 bg-primary rounded-full" />
+              <span className="w-8 h-1 bg-destructive rounded-full" />
+            </div>
+          </div>
+
+          <Card className="shadow-xl border-0 bg-card/95 backdrop-blur-sm">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login" className="gap-2">
@@ -283,11 +308,14 @@ export default function Auth() {
           </Tabs>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          <Users className="inline h-4 w-4 mr-1" />
-          Connecting students from Gish Abay Sekela
-        </p>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            <Users className="inline h-4 w-4 mr-1" />
+            Connecting students from Gish Abay Sekela
+          </p>
+        </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
