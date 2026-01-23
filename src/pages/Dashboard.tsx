@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { PaymentSection } from '@/components/PaymentSection';
 import { ChatSection } from '@/components/ChatSection';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,10 +39,10 @@ export default function Dashboard() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      <main className="container py-8">
+      <main className="container py-8 flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Welcome, {profile?.full_name?.split(' ')[0] || 'Member'}!</h1>
           <p className="text-muted-foreground">
@@ -113,6 +114,8 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
