@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Upload, Phone, Building2, Check, Clock } from 'lucide-react';
+import { CreditCard, Upload, Phone, Building2, Check, Clock, XCircle } from 'lucide-react';
 
 export function PaymentSection() {
   const { user } = useAuth();
@@ -201,11 +201,19 @@ export function PaymentSection() {
                     </p>
                   </div>
                   <Badge
-                    variant={payment.status === 'approved' ? 'default' : 'secondary'}
-                    className={payment.status === 'approved' ? 'bg-success' : 'bg-warning text-warning-foreground'}
+                    variant={payment.status === 'approved' ? 'default' : payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                    className={
+                      payment.status === 'approved' 
+                        ? 'bg-success' 
+                        : payment.status === 'rejected' 
+                          ? '' 
+                          : 'bg-warning text-warning-foreground'
+                    }
                   >
                     {payment.status === 'approved' ? (
                       <><Check className="h-3 w-3 mr-1" /> Approved</>
+                    ) : payment.status === 'rejected' ? (
+                      <><XCircle className="h-3 w-3 mr-1" /> Rejected</>
                     ) : (
                       <><Clock className="h-3 w-3 mr-1" /> Pending</>
                     )}

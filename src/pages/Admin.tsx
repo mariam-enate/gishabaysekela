@@ -32,6 +32,7 @@ import {
   CheckCircle,
   ExternalLink,
   Eye,
+  XCircle,
 } from 'lucide-react';
 
 interface Payment {
@@ -147,6 +148,33 @@ export default function Admin() {
       });
       queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Reject payment mutation
+  const rejectMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: 'rejected' })
+        .eq('id', paymentId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Payment Rejected',
+        description: 'The payment has been rejected.',
+        variant: 'destructive',
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
     },
     onError: (error) => {
       toast({
@@ -298,15 +326,27 @@ export default function Admin() {
                         </Button>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => approveMutation.mutate(payment.id)}
-                          disabled={approveMutation.isPending}
-                          className="bg-success hover:bg-success/90 gap-1"
-                        >
-                          <CheckCircle className="h-3 w-3" />
-                          Approve
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => approveMutation.mutate(payment.id)}
+                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                            className="bg-success hover:bg-success/90 gap-1"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => rejectMutation.mutate(payment.id)}
+                            disabled={approveMutation.isPending || rejectMutation.isPending}
+                            className="gap-1"
+                          >
+                            <XCircle className="h-3 w-3" />
+                            Reject
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
