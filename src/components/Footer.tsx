@@ -19,7 +19,7 @@ export function Footer() {
             </div>
             <div className="flex items-center gap-5">
               <a
-                href="https://t.me/gishabaysekela"
+                href="https://t.me/educationtime"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-foreground hover:text-primary transition-all duration-300 group"
@@ -30,7 +30,7 @@ export function Footer() {
                 <span className="text-sm font-medium hidden sm:inline">Telegram</span>
               </a>
               <a
-                href="https://instagram.com/gishabaysekela"
+                href="https://instagram.com/frekal21"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-foreground hover:text-accent transition-all duration-300 group"
@@ -41,7 +41,7 @@ export function Footer() {
                 <span className="text-sm font-medium hidden sm:inline">Instagram</span>
               </a>
               <a
-                href="https://facebook.com/gishabaysekela"
+                href="https://facebook.com/frekal21"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-foreground hover:text-info transition-all duration-300 group"

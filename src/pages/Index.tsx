@@ -4,7 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Droplets, CreditCard, MessageCircle, Shield, ArrowRight, Users, Heart, Sparkles } from 'lucide-react';
+import { Droplets, MessageCircle, ArrowRight, Users, Heart, Sparkles } from 'lucide-react';
 import heroAbay from '@/assets/hero-abay.jpg';
 import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
@@ -127,48 +127,48 @@ export default function Index() {
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Join Us?</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Experience the power of community with our modern platform designed for Ethiopian students
+            We are committed to building a strong, supportive community of students who share a common heritage and goals.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card className="group hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 p-6 bg-gradient-to-br from-card to-primary/5">
             <div className="h-12 w-12 rounded-xl bg-secondary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <CreditCard className="h-6 w-6 text-secondary" />
+              <Users className="h-6 w-6 text-secondary" />
             </div>
-            <h3 className="font-bold text-lg mb-2">Easy Payments</h3>
+            <h3 className="font-bold text-lg mb-2">Connect with Peers</h3>
             <p className="text-muted-foreground text-sm">
-              Contribute via CBE or Telebirr with receipt tracking and instant verification
+              Join a community of students from Gish Sekela studying at Debre Berhan University.
             </p>
           </Card>
 
           <Card className="group hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 p-6 bg-gradient-to-br from-card to-accent/5">
             <div className="h-12 w-12 rounded-xl bg-info/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <MessageCircle className="h-6 w-6 text-info" />
+              <Heart className="h-6 w-6 text-info" />
             </div>
-            <h3 className="font-bold text-lg mb-2">Real-time Chat</h3>
+            <h3 className="font-bold text-lg mb-2">Support Each Other</h3>
             <p className="text-muted-foreground text-sm">
-              Connect instantly with fellow students through our live messaging system
+              Contribute to our association fund to help fellow members in times of need.
             </p>
           </Card>
 
           <Card className="group hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 p-6 bg-gradient-to-br from-card to-secondary/5">
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Shield className="h-6 w-6 text-primary" />
+              <MessageCircle className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="font-bold text-lg mb-2">Secure & Transparent</h3>
+            <h3 className="font-bold text-lg mb-2">Stay Connected</h3>
             <p className="text-muted-foreground text-sm">
-              All payments verified by admins and tracked transparently for the community
+              Chat with members, share experiences, and build lasting friendships.
             </p>
           </Card>
 
           <Card className="group hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 p-6 bg-gradient-to-br from-card to-warning/5">
             <div className="h-12 w-12 rounded-xl bg-warning/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Users className="h-6 w-6 text-warning" />
+              <Sparkles className="h-6 w-6 text-warning" />
             </div>
-            <h3 className="font-bold text-lg mb-2">Strong Community</h3>
+            <h3 className="font-bold text-lg mb-2">Academic Excellence</h3>
             <p className="text-muted-foreground text-sm">
-              Join a growing network of students supporting each other's success
+              Support each other in achieving academic success and career goals.
             </p>
           </Card>
         </div>
