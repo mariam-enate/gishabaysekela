@@ -8,7 +8,24 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send, Pencil, Trash2, X, Check } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { MoreVertical } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -24,17 +41,19 @@ interface Profile {
 }
 
 export function ChatSection() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch messages and profiles separately to avoid foreign key issues
   const { data: messages, isLoading } = useQuery({
     queryKey: ['chat-messages'],
     queryFn: async () => {
-      // First fetch all messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
         .select('id, user_id, message, created_at')
@@ -44,22 +63,18 @@ export function ChatSection() {
       if (messagesError) throw messagesError;
       if (!messagesData || messagesData.length === 0) return [];
 
-      // Get unique user IDs
       const userIds = [...new Set(messagesData.map((m) => m.user_id))];
 
-      // Fetch profiles for those users
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name')
         .in('id', userIds);
 
-      // Create a map for quick lookup
       const profileMap = new Map<string, string>();
       (profilesData || []).forEach((p: Profile) => {
         profileMap.set(p.id, p.full_name);
       });
 
-      // Combine messages with sender names
       return messagesData.map((msg) => ({
         ...msg,
         sender_name: profileMap.get(msg.user_id) || 'Unknown',
@@ -75,7 +90,7 @@ export function ChatSection() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'chat_messages',
         },
@@ -103,7 +118,6 @@ export function ChatSection() {
         user_id: user!.id,
         message: messageText,
       });
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -119,10 +133,75 @@ export function ChatSection() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, message }: { id: string; message: string }) => {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ message })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditingId(null);
+      setEditingText('');
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+      toast({ title: 'Message updated' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to update message',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('chat_messages').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+      toast({ title: 'Message deleted' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to delete message',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('chat_messages').delete().neq('id', '');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages'] });
+      toast({ title: 'Chat history cleared' });
+      setClearDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to clear chat',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
     sendMutation.mutate(message.trim());
+  };
+
+  const handleEditSave = () => {
+    if (!editingId || !editingText.trim()) return;
+    updateMutation.mutate({ id: editingId, message: editingText.trim() });
   };
 
   const getInitials = (name: string) => {
@@ -156,14 +235,27 @@ export function ChatSection() {
   };
 
   return (
-    <Card className="flex h-[600px] flex-col">
-      <CardHeader className="border-b bg-info/5">
-        <CardTitle className="flex items-center gap-2 text-info">
-          <MessageCircle className="h-5 w-5" />
-          Member Chat
-        </CardTitle>
+    <Card className="flex h-[500px] flex-col">
+      <CardHeader className="border-b bg-info/5 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-info">
+            <MessageCircle className="h-5 w-5" />
+            Member Chat
+          </CardTitle>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setClearDialogOpen(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear All
+            </Button>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col p-0">
+      <CardContent className="flex flex-1 flex-col p-0 min-h-0">
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           {isLoading ? (
             <p className="text-center text-muted-foreground">Loading messages...</p>
@@ -186,7 +278,7 @@ export function ChatSection() {
                       </div>
                     )}
                     <div
-                      className={`flex items-start gap-3 ${
+                      className={`flex items-start gap-3 group ${
                         isOwn ? 'flex-row-reverse' : ''
                       }`}
                     >
@@ -211,15 +303,69 @@ export function ChatSection() {
                         >
                           {isOwn ? 'You' : msg.sender_name || 'Unknown'}
                         </p>
-                        <div
-                          className={`rounded-2xl px-4 py-2 ${
-                            isOwn
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
-                          }`}
-                        >
-                          <p className="text-sm">{msg.message}</p>
-                        </div>
+                        {editingId === msg.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="min-w-[200px]"
+                              autoFocus
+                            />
+                            <Button size="icon" variant="ghost" onClick={handleEditSave}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => setEditingId(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <div
+                              className={`rounded-2xl px-4 py-2 ${
+                                isOwn
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted'
+                              }`}
+                            >
+                              <p className="text-sm">{msg.message}</p>
+                            </div>
+                            {(isOwn || isAdmin) && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align={isOwn ? 'end' : 'start'}>
+                                  {isOwn && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingId(msg.id);
+                                        setEditingText(msg.message);
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  )}
+                                  {isAdmin && (
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => deleteMutation.mutate(msg.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        )}
                         <p
                           className={`mt-1 text-xs text-muted-foreground ${
                             isOwn ? 'text-right' : ''
@@ -240,7 +386,7 @@ export function ChatSection() {
           )}
         </ScrollArea>
 
-        <form onSubmit={handleSubmit} className="border-t p-4">
+        <form onSubmit={handleSubmit} className="border-t p-4 flex-shrink-0">
           <div className="flex gap-2">
             <Input
               placeholder="Type a message..."
@@ -254,6 +400,26 @@ export function ChatSection() {
           </div>
         </form>
       </CardContent>
+
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all chat messages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all chat messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => clearAllMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
