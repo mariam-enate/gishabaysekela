@@ -22,6 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -33,6 +43,7 @@ import {
   ExternalLink,
   Eye,
   XCircle,
+  UserX,
 } from 'lucide-react';
 
 interface Payment {
@@ -63,6 +74,8 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [memberToBan, setMemberToBan] = useState<Member | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -185,11 +198,43 @@ export default function Admin() {
     },
   });
 
+  // Ban member mutation
+  const banMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      // Delete user roles first
+      await supabase.from('user_roles').delete().eq('user_id', memberId);
+      // Delete profile
+      const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Member Banned',
+        description: 'The member has been removed from the association.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-members'] });
+      setBanDialogOpen(false);
+      setMemberToBan(null);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const viewReceipt = async (path: string) => {
     const { data } = await supabase.storage.from('receipts').createSignedUrl(path, 3600);
     if (data?.signedUrl) {
       setSelectedImage(data.signedUrl);
     }
+  };
+
+  const handleBanClick = (member: Member) => {
+    setMemberToBan(member);
+    setBanDialogOpen(true);
   };
 
   if (loading) {
@@ -383,6 +428,7 @@ export default function Admin() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Joined</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -397,6 +443,18 @@ export default function Admin() {
                           month: 'short',
                           day: 'numeric',
                         })}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleBanClick(member)}
+                          disabled={member.id === user.id}
+                          className="gap-1"
+                        >
+                          <UserX className="h-3 w-3" />
+                          Ban
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -441,6 +499,28 @@ export default function Admin() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Ban Confirmation Dialog */}
+      <AlertDialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ban Member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to ban <strong>{memberToBan?.full_name}</strong>? 
+              This will remove their profile and they will no longer be able to access the association.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => memberToBan && banMutation.mutate(memberToBan.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Ban Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

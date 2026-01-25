@@ -11,14 +11,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Upload, Phone, Building2, Check, Clock, XCircle } from 'lucide-react';
 
 export function PaymentSection() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Fetch user's payments
+  // Fetch user's payments (only for members)
   const { data: payments, isLoading } = useQuery({
     queryKey: ['payments', user?.id],
     queryFn: async () => {
@@ -31,7 +31,7 @@ export function PaymentSection() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !isAdmin,
   });
 
   const uploadMutation = useMutation({
@@ -93,6 +93,11 @@ export function PaymentSection() {
     await uploadMutation.mutateAsync({ amount: numAmount, file: screenshot });
     setUploading(false);
   };
+
+  // Admin should not see this section - they use the Admin dashboard
+  if (isAdmin) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
