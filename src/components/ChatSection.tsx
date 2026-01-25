@@ -15,9 +15,12 @@ interface ChatMessage {
   user_id: string;
   message: string;
   created_at: string;
-  profiles?: {
-    full_name: string;
-  };
+  sender_name?: string;
+}
+
+interface Profile {
+  id: string;
+  full_name: string;
 }
 
 export function ChatSection() {
@@ -27,28 +30,39 @@ export function ChatSection() {
   const [message, setMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch messages
+  // Fetch messages and profiles separately to avoid foreign key issues
   const { data: messages, isLoading } = useQuery({
     queryKey: ['chat-messages'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First fetch all messages
+      const { data: messagesData, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          id,
-          user_id,
-          message,
-          created_at,
-          profiles (
-            full_name
-          )
-        `)
+        .select('id, user_id, message, created_at')
         .order('created_at', { ascending: true })
         .limit(100);
 
-      if (error) throw error;
-      return (data || []).map((msg: any) => ({
+      if (messagesError) throw messagesError;
+      if (!messagesData || messagesData.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(messagesData.map((m) => m.user_id))];
+
+      // Fetch profiles for those users
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+
+      // Create a map for quick lookup
+      const profileMap = new Map<string, string>();
+      (profilesData || []).forEach((p: Profile) => {
+        profileMap.set(p.id, p.full_name);
+      });
+
+      // Combine messages with sender names
+      return messagesData.map((msg) => ({
         ...msg,
-        profiles: Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles,
+        sender_name: profileMap.get(msg.user_id) || 'Unknown',
       })) as ChatMessage[];
     },
     enabled: !!user,
@@ -180,8 +194,8 @@ export function ChatSection() {
                         <AvatarFallback
                           className={isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}
                         >
-                          {msg.profiles?.full_name
-                            ? getInitials(msg.profiles.full_name)
+                          {msg.sender_name
+                            ? getInitials(msg.sender_name)
                             : '??'}
                         </AvatarFallback>
                       </Avatar>
@@ -195,7 +209,7 @@ export function ChatSection() {
                             isOwn ? 'text-right' : ''
                           } text-muted-foreground`}
                         >
-                          {isOwn ? 'You' : msg.profiles?.full_name || 'Unknown'}
+                          {isOwn ? 'You' : msg.sender_name || 'Unknown'}
                         </p>
                         <div
                           className={`rounded-2xl px-4 py-2 ${
