@@ -53,11 +53,9 @@ interface Payment {
   screenshot_path: string;
   status: string;
   created_at: string;
-  profiles?: {
-    full_name: string;
-    phone: string;
-    department: string;
-  };
+  member_name?: string;
+  member_phone?: string;
+  member_department?: string;
 }
 
 interface Member {
@@ -83,33 +81,45 @@ export default function Admin() {
     }
   }, [user, isAdmin, loading, navigate]);
 
-  // Fetch pending payments
+  // Fetch pending payments with profiles (separate queries to avoid join issues)
   const { data: pendingPayments, isLoading: loadingPayments } = useQuery({
     queryKey: ['admin-pending-payments'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch payments first
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
-        .select(`
-          id,
-          user_id,
-          amount,
-          screenshot_path,
-          status,
-          created_at,
-          profiles (
-            full_name,
-            phone,
-            department
-          )
-        `)
+        .select('id, user_id, amount, screenshot_path, status, created_at')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return (data || []).map((p: any) => ({
-        ...p,
-        profiles: Array.isArray(p.profiles) ? p.profiles[0] : p.profiles,
-      })) as Payment[];
+      if (paymentsError) throw paymentsError;
+      if (!paymentsData || paymentsData.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(paymentsData.map((p) => p.user_id))];
+
+      // Fetch profiles for those users
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone, department')
+        .in('id', userIds);
+
+      // Create a map of user ID to profile data
+      const profileMap = new Map<string, { full_name: string; phone: string; department: string }>();
+      (profilesData || []).forEach((p) => {
+        profileMap.set(p.id, { full_name: p.full_name, phone: p.phone, department: p.department });
+      });
+
+      // Combine payments with profile data
+      return paymentsData.map((payment) => {
+        const profile = profileMap.get(payment.user_id);
+        return {
+          ...payment,
+          member_name: profile?.full_name || 'Unknown',
+          member_phone: profile?.phone || '-',
+          member_department: profile?.department || '-',
+        };
+      }) as Payment[];
     },
     enabled: !!user && isAdmin,
   });
@@ -349,10 +359,10 @@ export default function Admin() {
                   {pendingPayments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="font-medium">
-                        {payment.profiles?.full_name || 'Unknown'}
+                        {payment.member_name}
                       </TableCell>
-                      <TableCell>{payment.profiles?.phone || '-'}</TableCell>
-                      <TableCell>{payment.profiles?.department || '-'}</TableCell>
+                      <TableCell>{payment.member_phone}</TableCell>
+                      <TableCell>{payment.member_department}</TableCell>
                       <TableCell className="font-semibold">
                         {parseFloat(payment.amount.toString()).toLocaleString()} ETB
                       </TableCell>

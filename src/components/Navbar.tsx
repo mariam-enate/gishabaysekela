@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Droplets, User, LogOut, Shield, LayoutDashboard, Menu, Home, Info, Mail, Settings } from 'lucide-react';
+import { Droplets, User, LogOut, Shield, LayoutDashboard, Menu, Home, Info, Mail, Settings, MessageCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -79,14 +79,14 @@ export function Navbar() {
                   <Button variant="outline" size="sm" asChild className="hidden md:flex gap-2">
                     <Link to="/admin">
                       <Shield className="h-4 w-4" />
-                      Admin
+                      Admin Dashboard
                     </Link>
                   </Button>
                 )}
                 <Button variant="ghost" size="sm" asChild className="hidden md:flex gap-2">
-                  <Link to="/dashboard">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
+                  <Link to="/chat">
+                    <MessageCircle className="h-4 w-4" />
+                    Chat
                   </Link>
                 </Button>
                 
@@ -127,9 +127,9 @@ export function Navbar() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="md:hidden" />
                     <DropdownMenuItem asChild className="md:hidden">
-                      <Link to="/dashboard" className="flex items-center gap-2">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                      <Link to="/chat" className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Chat
                       </Link>
                     </DropdownMenuItem>
                     {isAdmin && (
@@ -185,6 +185,14 @@ export function Navbar() {
                         <LayoutDashboard className="h-5 w-5" />
                         Dashboard
                       </Link>
+                      <Link
+                        to="/chat"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                      >
+                        <MessageCircle className="h-5 w-5" />
+                        Chat
+                      </Link>
                       {isAdmin && (
                         <Link
                           to="/admin"
@@ -192,7 +200,7 @@ export function Navbar() {
                           className="flex items-center gap-3 text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
                         >
                           <Shield className="h-5 w-5" />
-                          Admin
+                          Admin Dashboard
                         </Link>
                       )}
                     </>
