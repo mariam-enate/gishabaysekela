@@ -122,7 +122,7 @@ const About = () => {
           <h2 className="text-3xl font-bold text-center mb-12">Our Values</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {values.map((value) => (
-              <Card key={value.title} className="bg-card/50 border-primary/20 hover:border-primary/50 transition-colors group">
+              <Card key={value.title} className="bg-card/50 border-primary/20 hover:border-primary/50 transition-all duration-300 group hover:scale-105 hover:shadow-xl hover:shadow-primary/20 hover:bg-card/80">
                 <CardContent className="p-6 text-center space-y-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 mx-auto group-hover:from-primary/30 group-hover:to-accent/30 transition-colors">
                     <value.icon className="h-7 w-7 text-primary" />
