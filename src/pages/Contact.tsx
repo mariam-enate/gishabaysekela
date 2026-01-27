@@ -56,14 +56,14 @@ const Contact = () => {
     {
       icon: Mail,
       label: 'Email',
-      value: 'gishabaysekela@gmail.com',
-      href: 'mailto:gishabaysekela@gmail.com',
+      value: 'mariam21enate16@gmail.com',
+      href: 'mailto:mariam21enate16@gmail.com',
     },
     {
       icon: Phone,
       label: 'Phone',
-      value: '+251 91 234 5678',
-      href: 'tel:+251912345678',
+      value: '+251 920 846 316',
+      href: 'tel:+251920846316',
     },
     {
       icon: MapPin,
@@ -83,21 +83,21 @@ const Contact = () => {
     {
       icon: Send,
       label: 'Telegram',
-      href: 'https://t.me/gishabaysekela',
+      href: 'https://t.me/educationtime',
       color: 'text-primary',
       bg: 'bg-primary/10 hover:bg-primary/20',
     },
     {
       icon: Instagram,
       label: 'Instagram',
-      href: 'https://instagram.com/gishabaysekela',
+      href: 'https://instagram.com/frekal21',
       color: 'text-accent',
       bg: 'bg-accent/10 hover:bg-accent/20',
     },
     {
       icon: Facebook,
       label: 'Facebook',
-      href: 'https://facebook.com/gishabaysekela',
+      href: 'https://facebook.com/frekal21',
       color: 'text-info',
       bg: 'bg-info/10 hover:bg-info/20',
     },
