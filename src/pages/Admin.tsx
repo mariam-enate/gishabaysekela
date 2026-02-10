@@ -8,42 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Shield,
-  DollarSign,
-  Users,
-  Clock,
-  CheckCircle,
-  ExternalLink,
-  Eye,
-  XCircle,
-  UserX,
+  Shield, DollarSign, Users, Clock, CheckCircle, ExternalLink, Eye, XCircle, UserX, ThumbsUp, ThumbsDown, MessageCircle,
 } from 'lucide-react';
 
 interface Payment {
@@ -81,11 +61,23 @@ export default function Admin() {
     }
   }, [user, isAdmin, loading, navigate]);
 
-  // Fetch pending payments with profiles (separate queries to avoid join issues)
+  // Fetch admin user IDs to exclude from member list
+  const { data: adminUserIds } = useQuery({
+    queryKey: ['admin-user-ids'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+      return (data || []).map((r) => r.user_id);
+    },
+    enabled: !!user && isAdmin,
+  });
+
+  // Fetch pending payments
   const { data: pendingPayments, isLoading: loadingPayments } = useQuery({
     queryKey: ['admin-pending-payments'],
     queryFn: async () => {
-      // Fetch payments first
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
         .select('id, user_id, amount, screenshot_path, status, created_at')
@@ -95,22 +87,17 @@ export default function Admin() {
       if (paymentsError) throw paymentsError;
       if (!paymentsData || paymentsData.length === 0) return [];
 
-      // Get unique user IDs
       const userIds = [...new Set(paymentsData.map((p) => p.user_id))];
-
-      // Fetch profiles for those users
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, phone, department')
         .in('id', userIds);
 
-      // Create a map of user ID to profile data
       const profileMap = new Map<string, { full_name: string; phone: string; department: string }>();
       (profilesData || []).forEach((p) => {
         profileMap.set(p.id, { full_name: p.full_name, phone: p.phone, department: p.department });
       });
 
-      // Combine payments with profile data
       return paymentsData.map((payment) => {
         const profile = profileMap.get(payment.user_id);
         return {
@@ -132,114 +119,141 @@ export default function Admin() {
         .from('payments')
         .select('amount')
         .eq('status', 'approved');
-
       if (error) throw error;
       return data.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
     },
     enabled: !!user && isAdmin,
   });
 
-  // Fetch all members
+  // Fetch approved count
+  const { data: approvedCount } = useQuery({
+    queryKey: ['admin-approved-count'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('status', 'approved');
+      if (error) throw error;
+      return data.length;
+    },
+    enabled: !!user && isAdmin,
+  });
+
+  // Fetch rejected count
+  const { data: rejectedCount } = useQuery({
+    queryKey: ['admin-rejected-count'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('status', 'rejected');
+      if (error) throw error;
+      return data.length;
+    },
+    enabled: !!user && isAdmin,
+  });
+
+  // Fetch all members (excluding admins)
   const { data: members, isLoading: loadingMembers } = useQuery({
-    queryKey: ['admin-members'],
+    queryKey: ['admin-members', adminUserIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      return data as Member[];
+      // Filter out admin users
+      return (data as Member[]).filter((m) => !(adminUserIds || []).includes(m.id));
+    },
+    enabled: !!user && isAdmin && !!adminUserIds,
+  });
+
+  // Fetch chat enabled setting
+  const { data: chatEnabled } = useQuery({
+    queryKey: ['chat-enabled'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'chat_enabled')
+        .maybeSingle();
+      return data?.value === 'true';
     },
     enabled: !!user && isAdmin,
+  });
+
+  // Toggle chat mutation
+  const toggleChatMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: enabled ? 'true' : 'false' })
+        .eq('key', 'chat_enabled');
+      if (error) throw error;
+    },
+    onSuccess: (_, enabled) => {
+      toast({ title: enabled ? 'Chat Enabled' : 'Chat Disabled', description: enabled ? 'Members can now send messages.' : 'Chat is now read-only for members.' });
+      queryClient.invalidateQueries({ queryKey: ['chat-enabled'] });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
   });
 
   // Approve payment mutation
   const approveMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const { error } = await supabase
-        .from('payments')
-        .update({ status: 'approved' })
-        .eq('id', paymentId);
-
+      const { error } = await supabase.from('payments').update({ status: 'approved' }).eq('id', paymentId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Payment Approved!',
-        description: 'The payment has been verified and added to the fund.',
-      });
+      toast({ title: 'Payment Approved!', description: 'The payment has been verified and added to the fund.' });
       queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
   // Reject payment mutation
   const rejectMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const { error } = await supabase
-        .from('payments')
-        .update({ status: 'rejected' })
-        .eq('id', paymentId);
-
+      const { error } = await supabase.from('payments').update({ status: 'rejected' }).eq('id', paymentId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Payment Rejected',
-        description: 'The payment has been rejected.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Payment Rejected', description: 'The payment has been rejected.', variant: 'destructive' });
       queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-rejected-count'] });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
   // Ban member mutation
   const banMutation = useMutation({
     mutationFn: async (memberId: string) => {
-      // Delete user roles first
       await supabase.from('user_roles').delete().eq('user_id', memberId);
-      // Delete profile
       const { error } = await supabase.from('profiles').delete().eq('id', memberId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({
-        title: 'Member Banned',
-        description: 'The member has been removed from the association.',
-      });
+      toast({ title: 'Member Banned', description: 'The member has been removed from the association.' });
       queryClient.invalidateQueries({ queryKey: ['admin-members'] });
       setBanDialogOpen(false);
       setMemberToBan(null);
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 
   const viewReceipt = async (path: string) => {
     const { data } = await supabase.storage.from('receipts').createSignedUrl(path, 3600);
-    if (data?.signedUrl) {
-      setSelectedImage(data.signedUrl);
-    }
+    if (data?.signedUrl) setSelectedImage(data.signedUrl);
   };
 
   const handleBanClick = (member: Member) => {
@@ -252,10 +266,8 @@ export default function Admin() {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container py-8">
-          <div className="grid gap-6 md:grid-cols-3 mb-8">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-5 mb-8">
+            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-32" />)}
           </div>
           <Skeleton className="h-96" />
         </div>
@@ -270,60 +282,96 @@ export default function Admin() {
       <Navbar />
 
       <main className="container py-8 flex-1">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Shield className="h-6 w-6 text-primary" />
+        <div className="mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+              <p className="text-muted-foreground">Manage payments and members</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage payments and members</p>
+          {/* Chat Toggle */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+            <MessageCircle className="h-5 w-5 text-info" />
+            <Label htmlFor="chat-toggle" className="font-medium">Group Chat</Label>
+            <Switch
+              id="chat-toggle"
+              checked={chatEnabled ?? true}
+              onCheckedChange={(checked) => toggleChatMutation.mutate(checked)}
+              disabled={toggleChatMutation.isPending}
+            />
+            <Badge variant={chatEnabled ? 'default' : 'secondary'} className={chatEnabled ? 'bg-success' : ''}>
+              {chatEnabled ? 'ON' : 'OFF'}
+            </Badge>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
-          <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+        {/* Stats Cards - Ethiopian Flag themed */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-5 mb-8">
+          <Card className="bg-gradient-to-br from-[hsl(142,52%,36%)]/20 to-[hsl(142,52%,36%)]/5 border-[hsl(142,52%,36%)]/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Total Fund</CardTitle>
-              <DollarSign className="h-4 w-4 text-success" />
+              <DollarSign className="h-4 w-4 text-[hsl(142,52%,36%)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-success">
+              <div className="text-2xl font-bold text-[hsl(142,52%,36%)]">
                 {(totalFund || 0).toLocaleString()} ETB
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                From approved payments
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">From approved payments</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
+          <Card className="bg-gradient-to-br from-[hsl(45,93%,47%)]/20 to-[hsl(45,93%,47%)]/5 border-[hsl(45,93%,47%)]/30">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-              <Clock className="h-4 w-4 text-warning" />
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-4 w-4 text-[hsl(45,93%,47%)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-warning">
+              <div className="text-2xl font-bold text-[hsl(45,93%,47%)]">
                 {pendingPayments?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Awaiting verification
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting verification</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[hsl(142,71%,45%)]/20 to-[hsl(142,71%,45%)]/5 border-[hsl(142,71%,45%)]/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              <ThumbsUp className="h-4 w-4 text-[hsl(142,71%,45%)]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-[hsl(142,71%,45%)]">
+                {approvedCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Verified payments</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[hsl(0,84%,60%)]/20 to-[hsl(0,84%,60%)]/5 border-[hsl(0,84%,60%)]/30">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <ThumbsDown className="h-4 w-4 text-[hsl(0,84%,60%)]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-[hsl(0,84%,60%)]">
+                {rejectedCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Invalid payments</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-info/10 to-info/5 border-info/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+              <CardTitle className="text-sm font-medium">Members</CardTitle>
               <Users className="h-4 w-4 text-info" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-info">
+              <div className="text-2xl font-bold text-info">
                 {members?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Registered students
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Registered students</p>
             </CardContent>
           </Card>
         </div>
@@ -339,9 +387,7 @@ export default function Admin() {
           </CardHeader>
           <CardContent className="p-0">
             {loadingPayments ? (
-              <div className="p-6">
-                <Skeleton className="h-20" />
-              </div>
+              <div className="p-6"><Skeleton className="h-20" /></div>
             ) : pendingPayments && pendingPayments.length > 0 ? (
               <Table>
                 <TableHeader>
@@ -358,48 +404,23 @@ export default function Admin() {
                 <TableBody>
                   {pendingPayments.map((payment) => (
                     <TableRow key={payment.id}>
-                      <TableCell className="font-medium">
-                        {payment.member_name}
-                      </TableCell>
+                      <TableCell className="font-medium">{payment.member_name}</TableCell>
                       <TableCell>{payment.member_phone}</TableCell>
                       <TableCell>{payment.member_department}</TableCell>
-                      <TableCell className="font-semibold">
-                        {parseFloat(payment.amount.toString()).toLocaleString()} ETB
-                      </TableCell>
+                      <TableCell className="font-semibold">{parseFloat(payment.amount.toString()).toLocaleString()} ETB</TableCell>
+                      <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
-                        {new Date(payment.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => viewReceipt(payment.screenshot_path)}
-                          className="gap-1"
-                        >
-                          <Eye className="h-3 w-3" />
-                          View
+                        <Button variant="outline" size="sm" onClick={() => viewReceipt(payment.screenshot_path)} className="gap-1">
+                          <Eye className="h-3 w-3" />View
                         </Button>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => approveMutation.mutate(payment.id)}
-                            disabled={approveMutation.isPending || rejectMutation.isPending}
-                            className="bg-success hover:bg-success/90 gap-1"
-                          >
-                            <CheckCircle className="h-3 w-3" />
-                            Approve
+                          <Button size="sm" onClick={() => approveMutation.mutate(payment.id)} disabled={approveMutation.isPending || rejectMutation.isPending} className="bg-success hover:bg-success/90 gap-1">
+                            <CheckCircle className="h-3 w-3" />Approve
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => rejectMutation.mutate(payment.id)}
-                            disabled={approveMutation.isPending || rejectMutation.isPending}
-                            className="gap-1"
-                          >
-                            <XCircle className="h-3 w-3" />
-                            Reject
+                          <Button size="sm" variant="destructive" onClick={() => rejectMutation.mutate(payment.id)} disabled={approveMutation.isPending || rejectMutation.isPending} className="gap-1">
+                            <XCircle className="h-3 w-3" />Reject
                           </Button>
                         </div>
                       </TableCell>
@@ -421,15 +442,13 @@ export default function Admin() {
           <CardHeader className="bg-info/5 border-b">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-info" />
-              Registered Members
+              Registered Members ({members?.length || 0})
             </CardTitle>
-            <CardDescription>All registered association members</CardDescription>
+            <CardDescription>All registered association members (excluding admins)</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {loadingMembers ? (
-              <div className="p-6">
-                <Skeleton className="h-20" />
-              </div>
+              <div className="p-6"><Skeleton className="h-20" /></div>
             ) : members && members.length > 0 ? (
               <Table>
                 <TableHeader>
@@ -447,23 +466,10 @@ export default function Admin() {
                       <TableCell className="font-medium">{member.full_name}</TableCell>
                       <TableCell>{member.phone}</TableCell>
                       <TableCell>{member.department}</TableCell>
+                      <TableCell>{new Date(member.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell>
                       <TableCell>
-                        {new Date(member.created_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleBanClick(member)}
-                          disabled={member.id === user.id}
-                          className="gap-1"
-                        >
-                          <UserX className="h-3 w-3" />
-                          Ban
+                        <Button size="sm" variant="destructive" onClick={() => handleBanClick(member)} disabled={member.id === user.id} className="gap-1">
+                          <UserX className="h-3 w-3" />Ban
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -471,9 +477,7 @@ export default function Admin() {
                 </TableBody>
               </Table>
             ) : (
-              <div className="p-6 text-center text-muted-foreground">
-                No members registered yet.
-              </div>
+              <div className="p-6 text-center text-muted-foreground">No members registered yet.</div>
             )}
           </CardContent>
         </Card>
@@ -484,25 +488,13 @@ export default function Admin() {
       {/* Receipt Preview Dialog */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Payment Receipt</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Payment Receipt</DialogTitle></DialogHeader>
           {selectedImage && (
             <div className="relative">
-              <img
-                src={selectedImage}
-                alt="Payment Receipt"
-                className="w-full rounded-lg"
-              />
-              <a
-                href={selectedImage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute top-2 right-2"
-              >
+              <img src={selectedImage} alt="Payment Receipt" className="w-full rounded-lg" />
+              <a href={selectedImage} target="_blank" rel="noopener noreferrer" className="absolute top-2 right-2">
                 <Button variant="secondary" size="sm" className="gap-1">
-                  <ExternalLink className="h-3 w-3" />
-                  Open Full Size
+                  <ExternalLink className="h-3 w-3" />Open Full Size
                 </Button>
               </a>
             </div>
@@ -522,10 +514,7 @@ export default function Admin() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => memberToBan && banMutation.mutate(memberToBan.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={() => memberToBan && banMutation.mutate(memberToBan.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Ban Member
             </AlertDialogAction>
           </AlertDialogFooter>

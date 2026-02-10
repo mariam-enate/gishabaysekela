@@ -176,7 +176,7 @@ export function ChatSection() {
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('chat_messages').delete().neq('id', '');
+      const { error } = await supabase.from('chat_messages').delete().gt('created_at', '1970-01-01T00:00:00Z');
       if (error) throw error;
     },
     onSuccess: () => {
