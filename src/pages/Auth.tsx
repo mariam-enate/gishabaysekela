@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-import { Droplets, Users, LogIn, UserPlus } from 'lucide-react';
+import { Droplets, Users, LogIn, UserPlus, EyeIcon, EyeOffIcon, ArrowLeft } from 'lucide-react';
 import heroAbay from '@/assets/hero-abay.jpg';
 import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
@@ -42,32 +42,28 @@ const signupSchema = z.object({
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('login');
   const [loginData, setLoginData] = useState({ identifier: '', password: '' });
   const [signupData, setSignupData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    fullName: '',
-    phone: '',
-    department: '',
-    customDepartment: '',
+    email: '', password: '', confirmPassword: '', fullName: '', phone: '', department: '', customDepartment: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
+    if (user) navigate('/dashboard');
   }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    
+
     const result = loginSchema.safeParse(loginData);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -79,25 +75,21 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    
-    // Determine if identifier is email or phone
     const identifier = loginData.identifier.trim();
     const isEmail = identifier.includes('@');
-    
     let loginEmail = identifier;
     if (!isEmail) {
-      // Phone login: use phone@placeholder format
       const cleanPhone = identifier.replace(/[^0-9]/g, '');
       loginEmail = `${cleanPhone}@phone.local`;
     }
-    
+
     const { error } = await signIn(loginEmail, loginData.password);
     setIsLoading(false);
 
     if (error) {
       toast({
         title: 'Login Failed',
-        description: error.message === 'Invalid login credentials' 
+        description: error.message === 'Invalid login credentials'
           ? 'Invalid email/phone or password. Please try again.'
           : error.message,
         variant: 'destructive',
@@ -111,13 +103,13 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    
-    const department = signupData.department === 'Other' 
-      ? signupData.customDepartment 
+
+    const department = signupData.department === 'Other'
+      ? signupData.customDepartment
       : signupData.department;
-    
+
     const dataToValidate = { ...signupData, department };
-    
+
     const result = signupSchema.safeParse(dataToValidate);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
@@ -134,17 +126,9 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    
-    // Use email if provided, otherwise create phone-based email
     const email = signupData.email.trim() || `${signupData.phone.replace(/[^0-9]/g, '')}@phone.local`;
-    
-    const { error } = await signUp(
-      email,
-      signupData.password,
-      signupData.fullName,
-      signupData.phone,
-      department
-    );
+
+    const { error } = await signUp(email, signupData.password, signupData.fullName, signupData.phone, department);
     setIsLoading(false);
 
     if (error) {
@@ -158,12 +142,44 @@ export default function Auth() {
     }
   };
 
+  const PasswordInput = ({ id, value, onChange, placeholder, show, onToggle, error }: {
+    id: string; value: string; onChange: (v: string) => void; placeholder: string;
+    show: boolean; onToggle: () => void; error?: string;
+  }) => (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? 'text' : 'password'}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`pr-10 ${error ? 'border-destructive' : ''}`}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {show ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-10" style={{ backgroundImage: `url(${heroAbay})` }} />
-      <div className="fixed inset-0 bg-background/85 backdrop-blur-sm -z-10" />
+      <div className="fixed inset-0 bg-gradient-to-br from-background/90 via-background/80 to-[hsl(var(--secondary))]/20 backdrop-blur-sm -z-10" />
 
       <div className="flex-1 flex flex-col items-center justify-center p-4">
+        {/* Back to Home */}
+        <div className="absolute top-4 left-4 md:top-8 md:left-8">
+          <Link to="/">
+            <Button variant="ghost" className="gap-2 text-foreground/80 hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />Back to Home
+            </Button>
+          </Link>
+        </div>
+
         <div className="absolute top-4 right-4 md:top-8 md:right-8 opacity-90">
           <img src={ethiopianFlag} alt="Ethiopian Flag" className="w-12 h-12 md:w-16 md:h-16 rounded-lg shadow-xl object-cover" />
         </div>
@@ -182,14 +198,20 @@ export default function Auth() {
             </div>
           </div>
 
-          <Card className="shadow-xl border-0 bg-card/95 backdrop-blur-sm">
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login" className="gap-2"><LogIn className="h-4 w-4" />Login</TabsTrigger>
-                <TabsTrigger value="signup" className="gap-2"><UserPlus className="h-4 w-4" />Sign Up</TabsTrigger>
+          <Card className="shadow-2xl bg-card/90 backdrop-blur-md border-2 border-transparent" style={{
+            borderImage: 'linear-gradient(135deg, hsl(142 52% 36%), hsl(45 93% 47%), hsl(0 84% 60%)) 1',
+          }}>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+                <TabsTrigger value="login" className="gap-2 transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <LogIn className="h-4 w-4" />Login
+                </TabsTrigger>
+                <TabsTrigger value="signup" className="gap-2 transition-all duration-300 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <UserPlus className="h-4 w-4" />Sign Up
+                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="login">
+              <TabsContent value="login" className="animate-in fade-in-50 duration-300">
                 <CardHeader>
                   <CardTitle>Welcome Back</CardTitle>
                   <CardDescription>Login with your email or phone number</CardDescription>
@@ -209,13 +231,14 @@ export default function Auth() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="login-password">Password</Label>
-                      <Input
+                      <PasswordInput
                         id="login-password"
-                        type="password"
-                        placeholder="••••••••"
                         value={loginData.password}
-                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                        className={errors.password ? 'border-destructive' : ''}
+                        onChange={(v) => setLoginData({ ...loginData, password: v })}
+                        placeholder="••••••••"
+                        show={showLoginPassword}
+                        onToggle={() => setShowLoginPassword(!showLoginPassword)}
+                        error={errors.password}
                       />
                       {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                     </div>
@@ -226,7 +249,7 @@ export default function Auth() {
                 </CardContent>
               </TabsContent>
 
-              <TabsContent value="signup">
+              <TabsContent value="signup" className="animate-in fade-in-50 duration-300">
                 <CardHeader>
                   <CardTitle>Create Account</CardTitle>
                   <CardDescription>Join the Gish Abay Sekela Students Association</CardDescription>
@@ -300,25 +323,27 @@ export default function Auth() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Password *</Label>
-                      <Input
+                      <PasswordInput
                         id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
                         value={signupData.password}
-                        onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                        className={errors.password ? 'border-destructive' : ''}
+                        onChange={(v) => setSignupData({ ...signupData, password: v })}
+                        placeholder="••••••••"
+                        show={showSignupPassword}
+                        onToggle={() => setShowSignupPassword(!showSignupPassword)}
+                        error={errors.password}
                       />
                       {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-confirm-password">Confirm Password *</Label>
-                      <Input
+                      <PasswordInput
                         id="signup-confirm-password"
-                        type="password"
-                        placeholder="••••••••"
                         value={signupData.confirmPassword}
-                        onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
-                        className={errors.confirmPassword ? 'border-destructive' : ''}
+                        onChange={(v) => setSignupData({ ...signupData, confirmPassword: v })}
+                        placeholder="••••••••"
+                        show={showConfirmPassword}
+                        onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                        error={errors.confirmPassword}
                       />
                       {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
                     </div>

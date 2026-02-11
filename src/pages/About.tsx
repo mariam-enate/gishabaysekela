@@ -7,33 +7,22 @@ import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
 const About = () => {
   const values = [
-    {
-      icon: Users,
-      title: 'Unity',
-      description: 'Bringing together students from Gish Abay Sekela to support each other.',
-    },
-    {
-      icon: BookOpen,
-      title: 'Education',
-      description: 'Promoting academic excellence and continuous learning.',
-    },
-    {
-      icon: Heart,
-      title: 'Community',
-      description: 'Building lasting connections and supporting our hometown.',
-    },
-    {
-      icon: Award,
-      title: 'Excellence',
-      description: 'Striving for the highest standards in all our endeavors.',
-    },
+    { icon: Users, title: 'Unity', description: 'Bringing together students from Gish Abay Sekela to support each other.' },
+    { icon: BookOpen, title: 'Education', description: 'Promoting academic excellence and continuous learning.' },
+    { icon: Heart, title: 'Community', description: 'Building lasting connections and supporting our hometown.' },
+    { icon: Award, title: 'Excellence', description: 'Striving for the highest standards in all our endeavors.' },
   ];
 
   const leadership = [
-    { name: 'Abebe Kebede', role: 'President', department: 'Engineering' },
-    { name: 'Tigist Hailu', role: 'Vice President', department: 'Medicine' },
-    { name: 'Dawit Mengistu', role: 'Treasurer', department: 'Business' },
-    { name: 'Hana Tesfaye', role: 'Secretary', department: 'Law' },
+    { name: 'Melis Melakie', role: 'Chairperson', department: 'Data Science' },
+    { name: 'Abebaw Mirete', role: 'Vice Chairperson', department: 'Logistics' },
+    { name: 'Mekuant Yitayih', role: 'Assistant Chairperson', department: 'Economics' },
+    { name: 'Menichil Birhanu', role: 'Assistant Chairperson', department: 'Accounting' },
+    { name: 'Zemenu Shumet', role: 'Assistant Chairperson', department: 'Biotechnology' },
+    { name: 'Melisew Mekuria', role: 'Assistant Chairperson', department: 'Chemical Engineering' },
+    { name: 'Getasew Tesfa', role: 'Assistant Chairperson', department: 'NARM' },
+    { name: 'Bekalu Gashaw', role: 'Association Coordinator', department: 'Management' },
+    { name: 'Estifanos Addisu', role: 'Association Coordinator', department: 'Accounting' },
   ];
 
   return (
@@ -42,12 +31,8 @@ const About = () => {
 
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroAbay})` }}
-        />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroAbay})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
-        
         <div className="container relative z-10">
           <div className="flex flex-col items-center text-center gap-6">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 shadow-xl shadow-primary/30">
@@ -84,11 +69,7 @@ const About = () => {
               </p>
             </div>
             <div className="relative">
-              <img
-                src={ethiopianFlag}
-                alt="Ethiopian Flag"
-                className="rounded-2xl shadow-2xl w-full max-w-md mx-auto animate-float"
-              />
+              <img src={ethiopianFlag} alt="Ethiopian Flag" className="rounded-2xl shadow-2xl w-full max-w-md mx-auto animate-float" />
               <div className="absolute -bottom-4 -right-4 h-32 w-32 bg-gradient-to-br from-primary/30 to-accent/30 rounded-full blur-2xl" />
             </div>
           </div>
@@ -140,19 +121,19 @@ const About = () => {
       <section className="py-16 bg-secondary/30">
         <div className="container">
           <h2 className="text-3xl font-bold text-center mb-12">Leadership Team</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {leadership.map((leader) => (
               <Card key={leader.name} className="bg-card border-primary/20 hover:shadow-lg hover:shadow-primary/10 transition-all">
-                <CardContent className="p-6 text-center space-y-3">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent mx-auto">
-                    <span className="text-2xl font-bold text-primary-foreground">
+                <CardContent className="p-4 text-center space-y-2">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent mx-auto">
+                    <span className="text-sm font-bold text-primary-foreground">
                       {leader.name.split(' ').map(n => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">{leader.name}</h3>
-                    <p className="text-primary font-medium">{leader.role}</p>
-                    <p className="text-sm text-muted-foreground">{leader.department}</p>
+                    <h3 className="text-sm font-semibold leading-tight">{leader.name}</h3>
+                    <p className="text-xs text-primary font-medium mt-0.5">{leader.role}</p>
+                    <p className="text-xs text-muted-foreground">{leader.department}</p>
                   </div>
                 </CardContent>
               </Card>

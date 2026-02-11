@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Shield, DollarSign, Users, Clock, CheckCircle, ExternalLink, Eye, XCircle, UserX, ThumbsUp, ThumbsDown, MessageCircle,
+  Shield, DollarSign, Users, Clock, CheckCircle, ExternalLink, Eye, XCircle, UserX, ThumbsUp, ThumbsDown, MessageCircle, Trash2, RotateCcw, List,
 } from 'lucide-react';
 
 interface Payment {
@@ -46,6 +46,11 @@ interface Member {
   created_at: string;
 }
 
+interface Contributor {
+  full_name: string;
+  total: number;
+}
+
 export default function Admin() {
   const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
@@ -53,7 +58,11 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [resetFundDialogOpen, setResetFundDialogOpen] = useState(false);
+  const [contributorsDialogOpen, setContributorsDialogOpen] = useState(false);
   const [memberToBan, setMemberToBan] = useState<Member | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
@@ -153,6 +162,37 @@ export default function Admin() {
     enabled: !!user && isAdmin,
   });
 
+  // Fetch contributors list
+  const { data: contributors } = useQuery({
+    queryKey: ['contributors-list'],
+    queryFn: async () => {
+      const { data: payments, error } = await supabase
+        .from('payments')
+        .select('user_id, amount')
+        .eq('status', 'approved');
+      if (error) throw error;
+
+      // Aggregate by user
+      const userTotals = new Map<string, number>();
+      payments.forEach((p) => {
+        userTotals.set(p.user_id, (userTotals.get(p.user_id) || 0) + parseFloat(p.amount.toString()));
+      });
+
+      if (userTotals.size === 0) return [] as Contributor[];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', [...userTotals.keys()]);
+
+      return (profiles || []).map((p) => ({
+        full_name: p.full_name,
+        total: userTotals.get(p.id) || 0,
+      })).sort((a, b) => b.total - a.total) as Contributor[];
+    },
+    enabled: !!user && isAdmin,
+  });
+
   // Fetch all members (excluding admins)
   const { data: members, isLoading: loadingMembers } = useQuery({
     queryKey: ['admin-members', adminUserIds],
@@ -162,7 +202,6 @@ export default function Admin() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      // Filter out admin users
       return (data as Member[]).filter((m) => !(adminUserIds || []).includes(m.id));
     },
     enabled: !!user && isAdmin && !!adminUserIds,
@@ -211,6 +250,7 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
       queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
       queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
+      queryClient.invalidateQueries({ queryKey: ['contributors-list'] });
     },
     onError: (error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -233,7 +273,7 @@ export default function Admin() {
     },
   });
 
-  // Ban member mutation
+  // Ban member mutation (remove role + profile)
   const banMutation = useMutation({
     mutationFn: async (memberId: string) => {
       await supabase.from('user_roles').delete().eq('user_id', memberId);
@@ -251,6 +291,53 @@ export default function Admin() {
     },
   });
 
+  // Delete user permanently mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      // Delete payments, chat messages, role, profile
+      await supabase.from('payments').delete().eq('user_id', memberId);
+      await supabase.from('chat_messages').delete().eq('user_id', memberId);
+      await supabase.from('user_roles').delete().eq('user_id', memberId);
+      const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'User Deleted', description: 'The user and all their data have been permanently removed.' });
+      queryClient.invalidateQueries({ queryKey: ['admin-members'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-rejected-count'] });
+      queryClient.invalidateQueries({ queryKey: ['contributors-list'] });
+      setDeleteDialogOpen(false);
+      setMemberToDelete(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Reset total fund mutation
+  const resetFundMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: 'pending' })
+        .eq('status', 'approved');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Fund Reset', description: 'Total fund has been reset to zero. All approved payments are now pending.' });
+      queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['contributors-list'] });
+      setResetFundDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const viewReceipt = async (path: string) => {
     const { data } = await supabase.storage.from('receipts').createSignedUrl(path, 3600);
     if (data?.signedUrl) setSelectedImage(data.signedUrl);
@@ -259,6 +346,11 @@ export default function Admin() {
   const handleBanClick = (member: Member) => {
     setMemberToBan(member);
     setBanDialogOpen(true);
+  };
+
+  const handleDeleteClick = (member: Member) => {
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
   };
 
   if (loading) {
@@ -282,7 +374,7 @@ export default function Admin() {
       <Navbar />
 
       <main className="container py-8 flex-1">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <Shield className="h-6 w-6 text-primary" />
@@ -320,6 +412,14 @@ export default function Admin() {
                 {(totalFund || 0).toLocaleString()} ETB
               </div>
               <p className="text-xs text-muted-foreground mt-1">From approved payments</p>
+              <div className="flex gap-2 mt-3">
+                <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setContributorsDialogOpen(true)}>
+                  <List className="h-3 w-3" />View Contributors
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setResetFundDialogOpen(true)}>
+                  <RotateCcw className="h-3 w-3" />Reset
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -457,7 +557,7 @@ export default function Admin() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Joined</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -468,9 +568,14 @@ export default function Admin() {
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{new Date(member.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell>
                       <TableCell>
-                        <Button size="sm" variant="destructive" onClick={() => handleBanClick(member)} disabled={member.id === user.id} className="gap-1">
-                          <UserX className="h-3 w-3" />Ban
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="destructive" onClick={() => handleBanClick(member)} disabled={member.id === user.id} className="gap-1">
+                            <UserX className="h-3 w-3" />Ban
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDeleteClick(member)} disabled={member.id === user.id} className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <Trash2 className="h-3 w-3" />Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -502,6 +607,46 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
 
+      {/* Contributors Dialog */}
+      <Dialog open={contributorsDialogOpen} onOpenChange={setContributorsDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-secondary" />
+              Fund Contributors
+            </DialogTitle>
+          </DialogHeader>
+          {contributors && contributors.length > 0 ? (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-secondary/10">
+                    <TableHead className="font-semibold">#</TableHead>
+                    <TableHead className="font-semibold">Full Name</TableHead>
+                    <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contributors.map((c, i) => (
+                    <TableRow key={i} className="hover:bg-secondary/5">
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">{c.full_name}</TableCell>
+                      <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="p-3 bg-secondary/10 border-t flex justify-between font-bold">
+                <span>Total</span>
+                <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Ban Confirmation Dialog */}
       <AlertDialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
         <AlertDialogContent>
@@ -509,13 +654,50 @@ export default function Admin() {
             <AlertDialogTitle>Ban Member?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to ban <strong>{memberToBan?.full_name}</strong>? 
-              This will remove their profile and they will no longer be able to access the association.
+              This will remove their profile and role. They will no longer be able to access the association.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => memberToBan && banMutation.mutate(memberToBan.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Ban Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{memberToDelete?.full_name}</strong>?
+              This will remove their profile, payments, chat messages, and all associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => memberToDelete && deleteMutation.mutate(memberToDelete.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Fund Confirmation Dialog */}
+      <AlertDialog open={resetFundDialogOpen} onOpenChange={setResetFundDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Total Funds?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reset the total funds to zero? All approved payments will be moved back to pending status. This allows you to start a new fundraising cycle.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resetFundMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Reset to Zero
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,18 +1,31 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
-import { CreditCard, MessageCircle, Users, Heart, DollarSign, CheckCircle } from 'lucide-react';
+import { CreditCard, MessageCircle, Users, Heart, DollarSign, CheckCircle, List } from 'lucide-react';
+
+interface Contributor {
+  full_name: string;
+  total: number;
+}
 
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+  const [contributorsOpen, setContributorsOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
@@ -28,6 +41,36 @@ export default function Dashboard() {
         .eq('status', 'approved');
       if (error) throw error;
       return data.reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0);
+    },
+    enabled: !!user,
+  });
+
+  // Fetch contributors list
+  const { data: contributors } = useQuery({
+    queryKey: ['contributors-list'],
+    queryFn: async () => {
+      const { data: payments, error } = await supabase
+        .from('payments')
+        .select('user_id, amount')
+        .eq('status', 'approved');
+      if (error) throw error;
+
+      const userTotals = new Map<string, number>();
+      payments.forEach((p) => {
+        userTotals.set(p.user_id, (userTotals.get(p.user_id) || 0) + parseFloat(p.amount.toString()));
+      });
+
+      if (userTotals.size === 0) return [] as Contributor[];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', [...userTotals.keys()]);
+
+      return (profiles || []).map((p) => ({
+        full_name: p.full_name,
+        total: userTotals.get(p.id) || 0,
+      })).sort((a, b) => b.total - a.total) as Contributor[];
     },
     enabled: !!user,
   });
@@ -105,11 +148,16 @@ export default function Dashboard() {
                     <p className="text-3xl font-bold text-secondary">{(totalFund || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm text-muted-foreground">
-                    {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-sm text-muted-foreground">
+                      {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setContributorsOpen(true)}>
+                    <List className="h-3 w-3" />View All
+                  </Button>
                 </div>
               </div>
               {verifiedPayers && verifiedPayers.length > 0 && (
@@ -160,6 +208,46 @@ export default function Dashboard() {
       </main>
 
       <Footer />
+
+      {/* Contributors Dialog */}
+      <Dialog open={contributorsOpen} onOpenChange={setContributorsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-secondary" />
+              Fund Contributors
+            </DialogTitle>
+          </DialogHeader>
+          {contributors && contributors.length > 0 ? (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-secondary/10">
+                    <TableHead className="font-semibold">#</TableHead>
+                    <TableHead className="font-semibold">Full Name</TableHead>
+                    <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contributors.map((c, i) => (
+                    <TableRow key={i} className="hover:bg-secondary/5">
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">{c.full_name}</TableCell>
+                      <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="p-3 bg-secondary/10 border-t flex justify-between font-bold">
+                <span>Total</span>
+                <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
