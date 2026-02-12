@@ -26,8 +26,8 @@ export function Navbar() {
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
+    signOut();
+    navigate('/auth', { replace: true });
   };
 
   const getInitials = (name: string) => {
