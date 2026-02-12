@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Shield, DollarSign, Users, Clock, CheckCircle, ExternalLink, Eye, XCircle, UserX, ThumbsUp, ThumbsDown, MessageCircle, Trash2, RotateCcw, List,
+  Shield, DollarSign, Users, Clock, CheckCircle, ExternalLink, Eye, XCircle, UserX, ThumbsUp, ThumbsDown, MessageCircle, Trash2, RotateCcw, List, Undo2,
 } from 'lucide-react';
 
 interface Payment {
@@ -44,6 +44,7 @@ interface Member {
   phone: string;
   department: string;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 interface Contributor {
@@ -200,6 +201,7 @@ export default function Admin() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data as Member[]).filter((m) => !(adminUserIds || []).includes(m.id));
@@ -291,29 +293,59 @@ export default function Admin() {
     },
   });
 
-  // Delete user permanently mutation
+  // Soft delete user mutation (set deleted_at, 24hr grace period)
   const deleteMutation = useMutation({
     mutationFn: async (memberId: string) => {
-      // Delete payments, chat messages, role, profile
-      await supabase.from('payments').delete().eq('user_id', memberId);
-      await supabase.from('chat_messages').delete().eq('user_id', memberId);
-      await supabase.from('user_roles').delete().eq('user_id', memberId);
-      const { error } = await supabase.from('profiles').delete().eq('id', memberId);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', memberId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: 'User Deleted', description: 'The user and all their data have been permanently removed.' });
+      toast({ title: 'Member Soft-Deleted', description: 'The member has been marked for deletion. You can undo within 24 hours.' });
       queryClient.invalidateQueries({ queryKey: ['admin-members'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-rejected-count'] });
-      queryClient.invalidateQueries({ queryKey: ['contributors-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deleted-members'] });
       setDeleteDialogOpen(false);
       setMemberToDelete(null);
     },
     onError: (error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
+  });
+
+  // Restore soft-deleted user
+  const restoreMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deleted_at: null })
+        .eq('id', memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Member Restored', description: 'The member has been restored successfully.' });
+      queryClient.invalidateQueries({ queryKey: ['admin-members'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-deleted-members'] });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Fetch soft-deleted members (within 24hrs)
+  const { data: deletedMembers } = useQuery({
+    queryKey: ['admin-deleted-members'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+      if (error) throw error;
+      return data as Member[];
+    },
+    enabled: !!user && isAdmin,
   });
 
   // Reset total fund mutation
@@ -586,6 +618,51 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+
+        {/* Recently Deleted Members (Soft Delete - Undo) */}
+        {deletedMembers && deletedMembers.length > 0 && (
+          <Card className="mt-8 border-destructive/30">
+            <CardHeader className="bg-destructive/5 border-b">
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-destructive" />
+                Recently Deleted ({deletedMembers.length})
+              </CardTitle>
+              <CardDescription>Soft-deleted members. You can restore them within 24 hours.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Deleted At</TableHead>
+                    <TableHead>Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deletedMembers.map((member) => {
+                    const deletedAt = new Date(member.deleted_at!);
+                    const hoursLeft = Math.max(0, 24 - (Date.now() - deletedAt.getTime()) / (1000 * 60 * 60));
+                    return (
+                      <TableRow key={member.id} className="opacity-70">
+                        <TableCell className="font-medium">{member.full_name}</TableCell>
+                        <TableCell>{member.phone}</TableCell>
+                        <TableCell>{member.department}</TableCell>
+                        <TableCell>{deletedAt.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" onClick={() => restoreMutation.mutate(member.id)} disabled={restoreMutation.isPending} className="gap-1 text-primary border-primary/30 hover:bg-primary/10">
+                            <Undo2 className="h-3 w-3" />Restore ({Math.ceil(hoursLeft)}h left)
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       <Footer />
@@ -670,16 +747,15 @@ export default function Admin() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User Permanently?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Member?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete <strong>{memberToDelete?.full_name}</strong>?
-              This will remove their profile, payments, chat messages, and all associated data. This action cannot be undone.
+              <strong>{memberToDelete?.full_name}</strong> will be soft-deleted. You can undo this within 24 hours. After 24 hours, they will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => memberToDelete && deleteMutation.mutate(memberToDelete.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete Permanently
+              Delete Member
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

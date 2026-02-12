@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-import { Droplets, Users, LogIn, UserPlus, EyeIcon, EyeOffIcon, ArrowLeft } from 'lucide-react';
+import { Droplets, Users, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
+import { PasswordInput } from '@/components/PasswordInput';
 import heroAbay from '@/assets/hero-abay.jpg';
 import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
@@ -142,29 +143,6 @@ export default function Auth() {
     }
   };
 
-  const PasswordInput = ({ id, value, onChange, placeholder, show, onToggle, error }: {
-    id: string; value: string; onChange: (v: string) => void; placeholder: string;
-    show: boolean; onToggle: () => void; error?: string;
-  }) => (
-    <div className="relative">
-      <Input
-        id={id}
-        type={show ? 'text' : 'password'}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`pr-10 ${error ? 'border-destructive' : ''}`}
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {show ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-      </button>
-    </div>
-  );
-
   return (
     <div className="min-h-screen flex flex-col">
       <div className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-10" style={{ backgroundImage: `url(${heroAbay})` }} />
@@ -225,6 +203,7 @@ export default function Auth() {
                         placeholder="your@email.com or 0912345678"
                         value={loginData.identifier}
                         onChange={(e) => setLoginData({ ...loginData, identifier: e.target.value })}
+                        autoComplete="off"
                         className={errors.identifier ? 'border-destructive' : ''}
                       />
                       {errors.identifier && <p className="text-sm text-destructive">{errors.identifier}</p>}
