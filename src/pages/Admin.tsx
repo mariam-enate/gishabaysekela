@@ -348,19 +348,26 @@ export default function Admin() {
     enabled: !!user && isAdmin,
   });
 
-  // Reset total fund mutation
+  // Reset total fund mutation (clears both approved AND rejected)
   const resetFundMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      // Delete all approved and rejected payments to start fresh
+      const { error: err1 } = await supabase
         .from('payments')
-        .update({ status: 'pending' })
+        .delete()
         .eq('status', 'approved');
-      if (error) throw error;
+      if (err1) throw err1;
+      const { error: err2 } = await supabase
+        .from('payments')
+        .delete()
+        .eq('status', 'rejected');
+      if (err2) throw err2;
     },
     onSuccess: () => {
-      toast({ title: 'Fund Reset', description: 'Total fund has been reset to zero. All approved payments are now pending.' });
+      toast({ title: 'Fund Reset', description: 'Total fund and rejected payments have been reset. A new fundraising cycle has started.' });
       queryClient.invalidateQueries({ queryKey: ['admin-total-fund'] });
       queryClient.invalidateQueries({ queryKey: ['admin-approved-count'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-rejected-count'] });
       queryClient.invalidateQueries({ queryKey: ['admin-pending-payments'] });
       queryClient.invalidateQueries({ queryKey: ['contributors-list'] });
       setResetFundDialogOpen(false);
@@ -767,7 +774,7 @@ export default function Admin() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Total Funds?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to reset the total funds to zero? All approved payments will be moved back to pending status. This allows you to start a new fundraising cycle.
+              Are you sure you want to reset the total funds to zero? All approved and rejected payments will be permanently deleted. This starts a completely new fundraising cycle.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
