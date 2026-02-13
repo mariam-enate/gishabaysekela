@@ -45,6 +45,7 @@ interface Member {
   department: string;
   created_at: string;
   deleted_at?: string | null;
+  email?: string;
 }
 
 interface Contributor {
@@ -194,7 +195,7 @@ export default function Admin() {
     enabled: !!user && isAdmin,
   });
 
-  // Fetch all members (excluding admins)
+  // Fetch all members (excluding admins) with emails
   const { data: members, isLoading: loadingMembers } = useQuery({
     queryKey: ['admin-members', adminUserIds],
     queryFn: async () => {
@@ -204,7 +205,17 @@ export default function Admin() {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data as Member[]).filter((m) => !(adminUserIds || []).includes(m.id));
+      const filteredMembers = (data as Member[]).filter((m) => !(adminUserIds || []).includes(m.id));
+      
+      // Fetch emails for these members
+      if (filteredMembers.length > 0) {
+        const memberIds = filteredMembers.map(m => m.id);
+        const { data: emailData } = await supabase.rpc('get_user_emails', { user_ids: memberIds });
+        const emailMap = new Map<string, string>();
+        (emailData || []).forEach((e: { id: string; email: string }) => emailMap.set(e.id, e.email));
+        return filteredMembers.map(m => ({ ...m, email: emailMap.get(m.id) || '-' }));
+      }
+      return filteredMembers;
     },
     enabled: !!user && isAdmin && !!adminUserIds,
   });
@@ -593,7 +604,7 @@ export default function Admin() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
+                    <TableHead>Phone / Email</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
@@ -603,7 +614,10 @@ export default function Admin() {
                   {members.map((member) => (
                     <TableRow key={member.id}>
                       <TableCell className="font-medium">{member.full_name}</TableCell>
-                      <TableCell>{member.phone}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">{member.phone}</div>
+                        <div className="text-xs text-muted-foreground">{member.email || '-'}</div>
+                      </TableCell>
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{new Date(member.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</TableCell>
                       <TableCell>

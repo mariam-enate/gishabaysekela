@@ -25,7 +25,7 @@ interface Contributor {
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [contributorsOpen, setContributorsOpen] = useState(false);
+  const [contributorsOpen, setContributorsOpen] = useState(false); // kept for potential future use
 
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
@@ -148,27 +148,52 @@ export default function Dashboard() {
                     <p className="text-3xl font-bold text-secondary">{(totalFund || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span className="text-sm text-muted-foreground">
-                      {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setContributorsOpen(true)}>
-                    <List className="h-3 w-3" />View All
-                  </Button>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-success" />
+                  <span className="text-sm text-muted-foreground">
+                    {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
+                  </span>
                 </div>
               </div>
-              {verifiedPayers && verifiedPayers.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground mb-2">Verified Payers:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {verifiedPayers.map((name, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">{name}</Badge>
-                    ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Full Contributors Table */}
+        <div className="w-full max-w-3xl mb-8">
+          <Card>
+            <CardContent className="p-0">
+              <div className="p-4 border-b flex items-center gap-2">
+                <List className="h-5 w-5 text-secondary" />
+                <h3 className="font-semibold text-lg">All Contributors</h3>
+              </div>
+              {contributors && contributors.length > 0 ? (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-secondary/10">
+                        <TableHead className="font-semibold">#</TableHead>
+                        <TableHead className="font-semibold">Full Name</TableHead>
+                        <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {contributors.map((c, i) => (
+                        <TableRow key={i} className="hover:bg-secondary/5">
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-medium">{c.full_name}</TableCell>
+                          <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="p-3 bg-secondary/10 border-t flex justify-between font-bold">
+                    <span>Total</span>
+                    <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
                   </div>
-                </div>
+                </>
+              ) : (
+                <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
               )}
             </CardContent>
           </Card>
@@ -209,45 +234,6 @@ export default function Dashboard() {
 
       <Footer />
 
-      {/* Contributors Dialog */}
-      <Dialog open={contributorsOpen} onOpenChange={setContributorsOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-secondary" />
-              Fund Contributors
-            </DialogTitle>
-          </DialogHeader>
-          {contributors && contributors.length > 0 ? (
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-secondary/10">
-                    <TableHead className="font-semibold">#</TableHead>
-                    <TableHead className="font-semibold">Full Name</TableHead>
-                    <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contributors.map((c, i) => (
-                    <TableRow key={i} className="hover:bg-secondary/5">
-                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell className="font-medium">{c.full_name}</TableCell>
-                      <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="p-3 bg-secondary/10 border-t flex justify-between font-bold">
-                <span>Total</span>
-                <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
