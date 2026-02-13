@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Droplets, User, LogOut, Shield, LayoutDashboard, Menu, Home, Info, Mail, Settings, MessageCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -94,6 +94,7 @@ export function Navbar() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                       <Avatar className="h-9 w-9">
+                        {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Profile" />}
                         <AvatarFallback className="bg-secondary text-secondary-foreground">
                           {profile?.full_name ? getInitials(profile.full_name) : <User className="h-4 w-4" />}
                         </AvatarFallback>
@@ -221,6 +222,7 @@ export function Navbar() {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Profile" />}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xl">
                   {profile?.full_name ? getInitials(profile.full_name) : <User className="h-8 w-8" />}
                 </AvatarFallback>

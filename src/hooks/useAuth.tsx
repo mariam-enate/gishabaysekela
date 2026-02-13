@@ -7,6 +7,7 @@ interface Profile {
   full_name: string;
   phone: string;
   department: string;
+  avatar_url: string | null;
 }
 
 interface AuthContextType {
