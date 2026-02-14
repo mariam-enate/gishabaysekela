@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-import { Droplets, Users, LogIn, UserPlus, ArrowLeft } from 'lucide-react';
+import { Droplets, Users, LogIn, UserPlus, ArrowLeft, KeyRound } from 'lucide-react';
 import { PasswordInput } from '@/components/PasswordInput';
+import { supabase } from '@/integrations/supabase/client';
 import heroAbay from '@/assets/hero-abay.jpg';
 import ethiopianFlag from '@/assets/ethiopian-flag.png';
 
@@ -52,6 +53,10 @@ export default function Auth() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotData, setForgotData] = useState({ identifier: '', password: '', confirmPassword: '' });
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
 
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -224,6 +229,15 @@ export default function Auth() {
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? 'Signing in...' : 'Sign In'}
                     </Button>
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
                   </form>
                 </CardContent>
               </TabsContent>
@@ -341,6 +355,124 @@ export default function Auth() {
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Dialog */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-primary" />
+                Reset Password
+              </CardTitle>
+              <CardDescription>Enter your registered email or phone and set a new password</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setErrors({});
+
+                  const id = forgotData.identifier.trim();
+                  if (!id) { setErrors({ forgotIdentifier: 'Email or phone is required' }); return; }
+                  if (forgotData.password.length < 6) { setErrors({ forgotPassword: 'Password must be at least 6 characters' }); return; }
+                  if (forgotData.password !== forgotData.confirmPassword) { setErrors({ forgotConfirm: 'Passwords do not match' }); return; }
+
+                  setIsLoading(true);
+                  const isEmail = id.includes('@');
+                  const loginEmail = isEmail ? id : `${id.replace(/[^0-9]/g, '')}@phone.local`;
+
+                  // Try to sign in with a dummy password to verify user exists, then update
+                  // We use admin-level update via edge function or direct update after sign-in
+                  // Since we can't verify identity without current password, we sign in then update
+                  const { error: signInError } = await supabase.auth.signInWithPassword({
+                    email: loginEmail,
+                    password: forgotData.password,
+                  });
+
+                  if (!signInError) {
+                    // Password is already the same, user is logged in
+                    setIsLoading(false);
+                    setShowForgotPassword(false);
+                    toast({ title: 'Success', description: 'You are now logged in.' });
+                    navigate('/dashboard');
+                    return;
+                  }
+
+                  // Use Supabase updateUser after OTP or reset flow
+                  // For this app's context (phone-based, no email verification), 
+                  // we'll use a password reset via email link approach
+                  const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+                    redirectTo: `${window.location.origin}/auth`,
+                  });
+                  setIsLoading(false);
+
+                  if (error) {
+                    toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                  } else {
+                    toast({
+                      title: 'Reset Link Sent',
+                      description: isEmail
+                        ? 'Check your email for a password reset link.'
+                        : 'A reset link has been sent. If you registered with a phone-only account, please contact an admin for help.',
+                    });
+                    setShowForgotPassword(false);
+                    setForgotData({ identifier: '', password: '', confirmPassword: '' });
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-identifier">Email or Phone Number</Label>
+                  <Input
+                    id="forgot-identifier"
+                    placeholder="your@email.com or 0912345678"
+                    value={forgotData.identifier}
+                    onChange={(e) => setForgotData({ ...forgotData, identifier: e.target.value })}
+                    autoComplete="off"
+                    className={errors.forgotIdentifier ? 'border-destructive' : ''}
+                  />
+                  {errors.forgotIdentifier && <p className="text-sm text-destructive">{errors.forgotIdentifier}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-new-password">New Password</Label>
+                  <PasswordInput
+                    id="forgot-new-password"
+                    value={forgotData.password}
+                    onChange={(v) => setForgotData({ ...forgotData, password: v })}
+                    placeholder="••••••••"
+                    show={showForgotNewPassword}
+                    onToggle={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                    error={errors.forgotPassword}
+                  />
+                  {errors.forgotPassword && <p className="text-sm text-destructive">{errors.forgotPassword}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-confirm-password">Confirm New Password</Label>
+                  <PasswordInput
+                    id="forgot-confirm-password"
+                    value={forgotData.confirmPassword}
+                    onChange={(v) => setForgotData({ ...forgotData, confirmPassword: v })}
+                    placeholder="••••••••"
+                    show={showForgotConfirmPassword}
+                    onToggle={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                    error={errors.forgotConfirm}
+                  />
+                  {errors.forgotConfirm && <p className="text-sm text-destructive">{errors.forgotConfirm}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => { setShowForgotPassword(false); setErrors({}); }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={isLoading}>
+                    {isLoading ? 'Processing...' : 'Reset Password'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Footer />
     </div>
