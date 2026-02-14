@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
-import { CreditCard, MessageCircle, Users, Heart, DollarSign, CheckCircle, List } from 'lucide-react';
+import { CreditCard, MessageCircle, Users, Heart, DollarSign, CheckCircle, Eye } from 'lucide-react';
 
 interface Contributor {
   full_name: string;
@@ -25,7 +25,7 @@ interface Contributor {
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [contributorsOpen, setContributorsOpen] = useState(false); // kept for potential future use
+  const [contributorsOpen, setContributorsOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
@@ -148,56 +148,59 @@ export default function Dashboard() {
                     <p className="text-3xl font-bold text-secondary">{(totalFund || 0).toLocaleString()} ETB</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm text-muted-foreground">
-                    {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-sm text-muted-foreground">
+                      {verifiedPayers?.length || 0} verified payer{(verifiedPayers?.length || 0) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setContributorsOpen(true)} className="gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    View Contributors
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Full Contributors Table */}
-        <div className="w-full max-w-3xl mb-8">
-          <Card>
-            <CardContent className="p-0">
-              <div className="p-4 border-b flex items-center gap-2">
-                <List className="h-5 w-5 text-secondary" />
-                <h3 className="font-semibold text-lg">All Contributors</h3>
-              </div>
-              {contributors && contributors.length > 0 ? (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-secondary/10">
-                        <TableHead className="font-semibold">#</TableHead>
-                        <TableHead className="font-semibold">Full Name</TableHead>
-                        <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
+        {/* Contributors Dialog */}
+        <Dialog open={contributorsOpen} onOpenChange={setContributorsOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>All Contributors</DialogTitle>
+            </DialogHeader>
+            {contributors && contributors.length > 0 ? (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-secondary/10">
+                      <TableHead className="font-semibold">#</TableHead>
+                      <TableHead className="font-semibold">Full Name</TableHead>
+                      <TableHead className="font-semibold text-right">Amount (ETB)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contributors.map((c, i) => (
+                      <TableRow key={i} className="hover:bg-secondary/5">
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="font-medium">{c.full_name}</TableCell>
+                        <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {contributors.map((c, i) => (
-                        <TableRow key={i} className="hover:bg-secondary/5">
-                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                          <TableCell className="font-medium">{c.full_name}</TableCell>
-                          <TableCell className="text-right font-semibold text-secondary">{c.total.toLocaleString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <div className="p-3 bg-secondary/10 border-t flex justify-between font-bold">
-                    <span>Total</span>
-                    <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="p-3 bg-secondary/10 rounded-md flex justify-between font-bold">
+                  <span>Total</span>
+                  <span className="text-secondary">{(totalFund || 0).toLocaleString()} ETB</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-muted-foreground py-6">No contributions yet.</p>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Navigation Cards */}
         <div className="grid gap-8 sm:grid-cols-2 w-full max-w-3xl">
