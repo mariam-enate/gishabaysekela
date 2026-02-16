@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { TelegramPaymentModal } from '@/components/TelegramPaymentModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ const Contact = () => {
     message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [telegramModalOpen, setTelegramModalOpen] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -240,17 +242,22 @@ const Contact = () => {
               <div>
                 <h2 className="text-2xl font-bold mb-6">Follow Us</h2>
                 <div className="flex gap-4">
-                  {socialLinks.map((social) => (
-                    <a
-                      key={social.label}
-                      href={social.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex h-14 w-14 items-center justify-center rounded-xl ${social.bg} transition-colors`}
-                    >
-                      <social.icon className={`h-6 w-6 ${social.color}`} />
-                    </a>
-                  ))}
+                  {socialLinks.map((social) => {
+                    const isTelegram = social.label === 'Telegram';
+                    const Component = isTelegram ? 'button' : 'a';
+                    const extraProps = isTelegram
+                      ? { onClick: () => setTelegramModalOpen(true) }
+                      : { href: social.href, target: '_blank', rel: 'noopener noreferrer' };
+                    return (
+                      <Component
+                        key={social.label}
+                        {...(extraProps as any)}
+                        className={`flex h-14 w-14 items-center justify-center rounded-xl ${social.bg} transition-colors`}
+                      >
+                        <social.icon className={`h-6 w-6 ${social.color}`} />
+                      </Component>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -271,6 +278,7 @@ const Contact = () => {
 
       <div className="flex-1" />
       <Footer />
+      <TelegramPaymentModal open={telegramModalOpen} onOpenChange={setTelegramModalOpen} />
     </div>
   );
 };
