@@ -379,45 +379,40 @@ export default function Auth() {
                   if (forgotData.password !== forgotData.confirmPassword) { setErrors({ forgotConfirm: 'Passwords do not match' }); return; }
 
                   setIsLoading(true);
-                  const isEmail = id.includes('@');
-                  const loginEmail = isEmail ? id : `${id.replace(/[^0-9]/g, '')}@phone.local`;
 
-                  // Try to sign in with a dummy password to verify user exists, then update
-                  // We use admin-level update via edge function or direct update after sign-in
-                  // Since we can't verify identity without current password, we sign in then update
-                  const { error: signInError } = await supabase.auth.signInWithPassword({
-                    email: loginEmail,
-                    password: forgotData.password,
-                  });
+                  try {
+                    const response = await supabase.functions.invoke('reset-password', {
+                      body: { identifier: id, newPassword: forgotData.password },
+                    });
 
-                  if (!signInError) {
-                    // Password is already the same, user is logged in
+                    if (response.error || response.data?.error) {
+                      const msg = response.data?.error || response.error?.message || 'Failed to reset password';
+                      toast({ title: 'Error', description: msg, variant: 'destructive' });
+                      setIsLoading(false);
+                      return;
+                    }
+
+                    // Password updated — now sign them in automatically
+                    const isEmail = id.includes('@');
+                    const loginEmail = isEmail ? id : `${id.replace(/[^0-9]/g, '')}@phone.local`;
+                    const { error: signInError } = await supabase.auth.signInWithPassword({
+                      email: loginEmail,
+                      password: forgotData.password,
+                    });
+
                     setIsLoading(false);
                     setShowForgotPassword(false);
-                    toast({ title: 'Success', description: 'You are now logged in.' });
-                    navigate('/dashboard');
-                    return;
-                  }
-
-                  // Use Supabase updateUser after OTP or reset flow
-                  // For this app's context (phone-based, no email verification), 
-                  // we'll use a password reset via email link approach
-                  const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
-                    redirectTo: `${window.location.origin}/auth`,
-                  });
-                  setIsLoading(false);
-
-                  if (error) {
-                    toast({ title: 'Error', description: error.message, variant: 'destructive' });
-                  } else {
-                    toast({
-                      title: 'Reset Link Sent',
-                      description: isEmail
-                        ? 'Check your email for a password reset link.'
-                        : 'A reset link has been sent. If you registered with a phone-only account, please contact an admin for help.',
-                    });
-                    setShowForgotPassword(false);
                     setForgotData({ identifier: '', password: '', confirmPassword: '' });
+
+                    if (signInError) {
+                      toast({ title: 'Password Updated', description: 'Your password has been reset. Please log in with your new password.' });
+                    } else {
+                      toast({ title: 'Success!', description: 'Password reset and logged in successfully.' });
+                      navigate('/dashboard');
+                    }
+                  } catch (err) {
+                    setIsLoading(false);
+                    toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
                   }
                 }}
                 className="space-y-4"
