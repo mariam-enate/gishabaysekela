@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { Send, Instagram, Facebook, MapPin, Heart } from 'lucide-react';
-import { TelegramPaymentModal } from '@/components/TelegramPaymentModal';
 
 export function Footer() {
-  const [telegramModalOpen, setTelegramModalOpen] = useState(false);
 
   return (
     <footer className="relative bg-gradient-to-br from-secondary via-secondary/95 to-primary/20 border-t-4 border-primary py-10">
@@ -22,15 +19,17 @@ export function Footer() {
               <p className="text-sm font-bold text-foreground">Connect with us</p>
             </div>
             <div className="flex items-center gap-5">
-              <button
-                onClick={() => setTelegramModalOpen(true)}
+              <a
+                href="https://t.me/educationtime"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 text-foreground hover:text-primary transition-all duration-300 group"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 group-hover:from-primary group-hover:to-primary/80 group-hover:shadow-lg group-hover:shadow-primary/30 transition-all duration-300 border border-primary/20">
                   <Send className="h-5 w-5 text-primary group-hover:text-primary-foreground transition-colors" />
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">Telegram</span>
-              </button>
+              </a>
               <a
                 href="https://instagram.com/frekal21"
                 target="_blank"
@@ -66,7 +65,6 @@ export function Footer() {
         </div>
       </div>
 
-      <TelegramPaymentModal open={telegramModalOpen} onOpenChange={setTelegramModalOpen} />
     </footer>
   );
 }
